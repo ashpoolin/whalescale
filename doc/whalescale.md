@@ -1,5 +1,5 @@
 # WhaleScale
-An adaptation of Google's page rank algorithm for determining wallet prestige and importance within a cryptocurrency financial network.
+An adaptation of Google's PageRank algorithm for determining wallet prestige and importance within a cryptocurrency financial network.
 
 [gelato.sh](https://gelato.sh) / 2023-08-20 / v0.1.0
 
@@ -101,7 +101,7 @@ cryo transactions \
     --csv \
     --max-concurrent-requests 20
 ```
-You can manage the `max-concurrent-request` based on your node's capabilities, and choose an alternate output format (such as json), of course.
+You can manage the `max-concurrent-requests` based on your node's capabilities, and choose an alternate output format (such as json), of course.
 
 #### 3. Extract Transfer Data
 To retrieve the relevant transaction data, we need to obtain all calls to the ERC-20 contract of interest. For TUSD, this address is `0x0000000000085d4780B73119b644AE5ecd22b376`. Additionally, to identify transfers, we take the SHA3 hash of the function header which typically looks like this `transfer(address recipient,uint256 amount)`. That exercise can be left to the reader, but a quick view of the `input` field of transfer on [Etherscan](https://etherscan.io/tx/0x2939fa6dd738d2e3c78028640947ec4977abe0c646efb744257a03e091252e0e) gives us what we need to know: the first 8 bytes of the `input` is the `Method ID` (essentially, the instruction identifier), which is `0xa9059cbb`. This identifier should be common to all ERC-20 compliant tokens.
@@ -190,7 +190,7 @@ cat transaction_hash_list.txt \
 #### 5. SUM Transfers
 We now have a very large file with only the token's transfer data in it. An intermediate step that is important is to remove failed/reverted transactions (not shown). We crudely removed a handful of failed integer overflow transactions that notably disturbed the data, but were not particularly thorough here. This is an improvement we will make going forward. We'll presume that this step has been performed by the user before proceeding.
 
-To sum all of the transfers, the reader is free to choose whatever tool they like to perform this operation, but we are comfortable with PostgreSQL, which is capable of handling tables of this size. The comma-delimited file is loaded into a table, and we run a query like this (see below). Take note of the `decimals` scale factor for the token (which can be found on Etherscan). The amount should be scaled to the UI amount (e.g. amount / 10^<# decimals>) and converted to a double type to prevent integer overrun.   
+To sum all of the transfers, the reader is free to choose whatever tool they like to perform this operation, but we are comfortable with PostgreSQL, which is capable of handling tables of this size. The comma-delimited file is loaded into a table, and we run a query like this (see below). Take note of the `decimals` scale factor for the token (which can be found on Etherscan). Also note that we import the amount initially as a string, since the numbers are large and will exceed the maximum allowed by the `integer` or even `bigint` types. No matter, we can scale the raw amount to the UI amount as follows: amount::decimal / 10^<# decimals>, thereby converting to a double type to prevent integer overrun.
 ```sql
 select sender, receiver, sum(amount / 10^18) as uiamount into 
 erc20_xfer_summary from erc20_parsed_xfers group by sender, receiver; 
